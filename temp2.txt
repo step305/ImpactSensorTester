@@ -1,7 +1,5 @@
 from PyQt6 import QtCore, QtGui, QtWidgets
 from PyQt6.QtGui import QCloseEvent
-
-import config
 from drivers import NIDAQ
 
 
@@ -42,8 +40,8 @@ class TestWindow(QtWidgets.QMainWindow):
 
         self.sensors = [QtWidgets.QFrame(self.centralwidget) for _ in range(NUM_OF_SENSORS)]
         self.serial_nums = [QtWidgets.QLineEdit(self.sensors[i]) for i in range(NUM_OF_SENSORS)]
-        self.range_lists = [QtWidgets.QComboBox(self.sensors[i]) for i in range(NUM_OF_SENSORS)]
-        self.tolerance_lists = [QtWidgets.QComboBox(self.sensors[i]) for i in range(NUM_OF_SENSORS)]
+        self.range_lists = [QtWidgets.QListWidget(self.sensors[i]) for i in range(NUM_OF_SENSORS)]
+        self.tolerance_lists = [QtWidgets.QListWidget(self.sensors[i]) for i in range(NUM_OF_SENSORS)]
         self.u_off_forwards = [QtWidgets.QLineEdit(self.sensors[i]) for i in range(NUM_OF_SENSORS)]
         self.u_off_forward_labels = [QtWidgets.QLabel(self.sensors[i]) for i in range(NUM_OF_SENSORS)]
         self.u_off_reverses = [QtWidgets.QLineEdit(self.sensors[i]) for i in range(NUM_OF_SENSORS)]
@@ -80,15 +78,12 @@ class TestWindow(QtWidgets.QMainWindow):
             self.serial_nums[i].setText("серийный номер")
             self.serial_nums[i].setObjectName("serial_num_{}".format(i))
 
+            self.range_lists[i] = QtWidgets.QListWidget(self.sensors[i])
             self.range_lists[i].setGeometry(QtCore.QRect(170, 10, 120, 25))
             self.range_lists[i].setObjectName("range_list_{}".format(i))
-            self.range_lists[i].setMaxVisibleItems(5)
-            self.range_lists[i].addItems(config.SENSOR_TYPES)
 
             self.tolerance_lists[i].setGeometry(QtCore.QRect(300, 10, 120, 25))
             self.tolerance_lists[i].setObjectName("tolerance_list_{}".format(i))
-            self.tolerance_lists[i].setMaxVisibleItems(5)
-            self.tolerance_lists[i].addItems([str(x) for x in config.TOLERANCES])
 
             self.u_off_forwards[i].setGeometry(QtCore.QRect(40, 75, 120, 25))
             self.u_off_forwards[i].setFont(font12)
@@ -109,16 +104,19 @@ class TestWindow(QtWidgets.QMainWindow):
             self.u_off_reverse_labels[i].setObjectName("u_off_reverse_label_{}".format(i))
 
             self.u_off_forward_fixes[i].setGeometry(QtCore.QRect(10, 75, 20, 20))
+            self.u_off_forward_fixes[i].setStyleSheet("QCheckBox::indicator { width: 30px; height: 30px;}")
             self.u_off_forward_fixes[i].setText("")
             self.u_off_forward_fixes[i].setObjectName("u_off_forward_fix_{}".format(i))
 
             self.u_off_reverse_fixes[i].setGeometry(QtCore.QRect(170, 75, 20, 20))
+            self.u_off_reverse_fixes[i].setStyleSheet("QCheckBox::indicator { width: 30px; height: 30px;}")
             self.u_off_reverse_fixes[i].setText("")
             self.u_off_reverse_fixes[i].setObjectName("u_off_reverse_fix_{}".format(i))
 
             self.defects[i].setGeometry(QtCore.QRect(340, 75, 70, 20))
             self.defects[i].setFont(font12bold)
             self.defects[i].setText("Брак")
+            self.defects[i].setStyleSheet("QCheckBox::indicator { width: 30px; height: 30px;}")
             self.defects[i].setObjectName("defect_{}".format(i))
 
             self.u_ons[i].setGeometry(QtCore.QRect(40, 140, 120, 25))
@@ -126,6 +124,7 @@ class TestWindow(QtWidgets.QMainWindow):
             self.u_ons[i].setObjectName("u_on_{}".format(i))
 
             self.u_on_fixes[i].setGeometry(QtCore.QRect(10, 140, 20, 20))
+            self.u_on_fixes[i].setStyleSheet("QCheckBox::indicator { width: 30px; height: 30px;}")
             self.u_on_fixes[i].setText("")
             self.u_on_fixes[i].setObjectName("u_on_fix_{}".format(i))
 
@@ -145,11 +144,13 @@ class TestWindow(QtWidgets.QMainWindow):
             self.label_ons[i].setObjectName("label_on_{}".format(i))
 
             self.lowers[i].setGeometry(QtCore.QRect(230, 140, 100, 20))
+            self.lowers[i].setStyleSheet("QCheckBox::indicator { width: 30px; height: 30px;}")
             self.lowers[i].setFont(font12bold)
             self.lowers[i].setText("Нижний")
             self.lowers[i].setObjectName("lower_{}".format(i))
 
             self.uppers[i].setGeometry(QtCore.QRect(330, 140, 100, 20))
+            self.uppers[i].setStyleSheet("QCheckBox::indicator { width: 30px; height: 30px;}")
             self.uppers[i].setFont(font12bold)
             self.uppers[i].setText("Верхний")
             self.uppers[i].setObjectName("upper_{}".format(i))

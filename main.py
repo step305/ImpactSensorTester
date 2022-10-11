@@ -6,7 +6,7 @@ if __name__ == '__main__':
     import sys
 
     app = QtWidgets.QApplication(sys.argv)
-    ui = main_mindow.Ui_main_window()
+    ui = main_mindow.TestWindow()
     ui.show()
 
     sys.exit(app.exec())
