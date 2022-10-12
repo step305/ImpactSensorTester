@@ -11,6 +11,31 @@ FRAME_VERTICAL_SHIFT = 200
 FRAME_HORIZONTAL_SHIFT = 500
 
 
+class ADCThread(QtCore.QThread):
+    adc_data = QtCore.pyqtSignal(object)
+
+    def __init__(self, adc_config):
+        QtCore.QThread.__init__(self)
+        self.adc = NIDAQ.NIDAQ(
+            dev_id=adc_config['dev_id'],
+            rate=adc_config['rate'],
+            acq_time=adc_config['acq_time'],
+            channels=adc_config['channels'],
+            volt_range=adc_config['range'])
+        self.n_channels = len(adc_config['channels'])
+        self.quit = False
+
+    def run(self) -> None:
+        while not self.quit:
+            data = self.adc.get()
+            result = ';'.join(['{:0.5f}'.format(d) for d in data])
+            self.adc_data.emit(result)
+        self.adc.close()
+
+    def stop(self):
+        self.quit = True
+
+
 class TestWindow(QtWidgets.QMainWindow):
     def __init__(self):
         super(TestWindow, self).__init__()
@@ -84,11 +109,13 @@ class TestWindow(QtWidgets.QMainWindow):
             self.range_lists[i].setObjectName("range_list_{}".format(i))
             self.range_lists[i].setMaxVisibleItems(5)
             self.range_lists[i].addItems(config.SENSOR_TYPES)
+            self.range_lists[i].currentIndexChanged.connect(self.on_range_change)
 
             self.tolerance_lists[i].setGeometry(QtCore.QRect(300, 10, 120, 25))
             self.tolerance_lists[i].setObjectName("tolerance_list_{}".format(i))
             self.tolerance_lists[i].setMaxVisibleItems(5)
             self.tolerance_lists[i].addItems([str(x) for x in config.TOLERANCES])
+            self.tolerance_lists[i].currentIndexChanged.connect(self.on_range_change)
 
             self.u_off_forwards[i].setGeometry(QtCore.QRect(40, 75, 120, 25))
             self.u_off_forwards[i].setFont(font12)
@@ -120,6 +147,7 @@ class TestWindow(QtWidgets.QMainWindow):
             self.defects[i].setFont(font12bold)
             self.defects[i].setText("Брак")
             self.defects[i].setObjectName("defect_{}".format(i))
+            self.defects[i].stateChanged.connect(self.on_defect_change)
 
             self.u_ons[i].setGeometry(QtCore.QRect(40, 140, 120, 25))
             self.u_ons[i].setFont(font12)
@@ -169,6 +197,65 @@ class TestWindow(QtWidgets.QMainWindow):
 
         self.setCentralWidget(self.centralwidget)
         QtCore.QMetaObject.connectSlotsByName(self)
+        self.on_range_change()
+
+        adc_config = {
+            'dev_id': config.ADC_DEV,
+            'rate': config.ADC_FREQ,
+            'acq_time': config.ADC_TIME_ACQ,
+            'channels': config.ADC_CHANNELS,
+            'range': config.ADC_RANGE,
+        }
+        self.fix = False
+        self.adc = ADCThread(adc_config=adc_config)
+        self.adc.start()
+        self.adc.adc_data.connect(self.update_fields)
+        self.u_power = 0
+
+    def on_defect_change(self):
+        for i in range(NUM_OF_SENSORS):
+            if self.defects[i].isChecked():
+                self.u_on_fixes[i].setCheckState(QtCore.Qt.CheckState.Checked.Checked)
+                self.u_off_reverse_fixes[i].setCheckState(QtCore.Qt.CheckState.Checked.Checked)
+                self.u_off_forward_fixes[i].setCheckState(QtCore.Qt.CheckState.Checked.Checked)
+            else:
+                self.u_on_fixes[i].setCheckState(QtCore.Qt.CheckState.Checked.Unchecked)
+                self.u_off_reverse_fixes[i].setCheckState(QtCore.Qt.CheckState.Checked.Unchecked)
+                self.u_off_forward_fixes[i].setCheckState(QtCore.Qt.CheckState.Checked.Unchecked)
+
+    def on_range_change(self):
+        for i in range(NUM_OF_SENSORS):
+            indx = self.range_lists[i].currentIndex()
+            threshold = config.SENSOR_TYPES_THRESHOLD[indx]
+            indx = self.tolerance_lists[i].currentIndex()
+            tolerance = config.TOLERANCES[indx]
+            accel_low = (100 - tolerance) / 100 * threshold
+            accel_high = (100 + tolerance) / 100 * threshold
+            self.lowers[i].setText('{:0.2f}g'.format(accel_low))
+            self.uppers[i].setText('{:0.2f}g'.format(accel_high))
+
+    def update_fields(self, data):
+        adc_data = data.split(';')
+        u_plus = float(adc_data[NUM_OF_SENSORS])
+        u_minus = float(adc_data[NUM_OF_SENSORS + 1])
+        u_power = u_plus - u_minus
+        u_out = [float(adc_data[i]) - u_minus for i in range(NUM_OF_SENSORS)]
+        resistivity = [u_power / u_out[i] * config.RH - config.RH for i in range(NUM_OF_SENSORS)]
+        self.u_power = abs(u_power)
+        u_out = [abs(u) for u in u_out]
+        for i in range(NUM_OF_SENSORS):
+            if not self.u_off_forward_fixes[i].isChecked():
+                self.u_off_forwards[i].setText('{:0.4f}'.format(resistivity[i] / 1e6))
+                self.u_off_forwards[i].setToolTip('{:0.4f}'.format(u_out[i]))
+            if not self.u_off_reverse_fixes[i].isChecked():
+                self.u_off_reverses[i].setText('{:0.4f}'.format(resistivity[i] / 1e6))
+                self.u_off_reverses[i].setToolTip('{:0.4f}'.format(u_out[i]))
+            if not self.u_on_fixes[i].isChecked():
+                self.u_ons[i].setText('{:0.1f}'.format(resistivity[i]))
+                self.u_ons[i].setToolTip('{:0.4f}'.format(u_out[i]))
+
+    def closeEvent(self, event: QCloseEvent):
+        self.adc.stop()
 
 
 if __name__ == "__main__":
