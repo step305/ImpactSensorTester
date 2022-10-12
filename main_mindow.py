@@ -65,6 +65,9 @@ class TestWindow(QtWidgets.QMainWindow):
         font10 = QtGui.QFont()
         font10.setPointSize(10)
 
+        self.ICON_ON_STATE = QtGui.QPixmap('on.png')
+        self.ICON_OFF_STATE = QtGui.QPixmap('off.png')
+
         self.sensors = [QtWidgets.QFrame(self.centralwidget) for _ in range(NUM_OF_SENSORS)]
         self.serial_nums = [QtWidgets.QLineEdit(self.sensors[i]) for i in range(NUM_OF_SENSORS)]
         self.range_lists = [QtWidgets.QComboBox(self.sensors[i]) for i in range(NUM_OF_SENSORS)]
@@ -86,6 +89,7 @@ class TestWindow(QtWidgets.QMainWindow):
         self.working_labels = [QtWidgets.QLabel(self.sensors[i]) for i in range(NUM_OF_SENSORS)]
         self.reset_buttons = [QtWidgets.QPushButton(self.sensors[i]) for i in range(NUM_OF_SENSORS)]
         self.store_buttons = [QtWidgets.QPushButton(self.sensors[i]) for i in range(NUM_OF_SENSORS)]
+        self.state_labels = [QtWidgets.QLabel(self.sensors[i]) for i in range(NUM_OF_SENSORS)]
 
         for i in range(NUM_OF_SENSORS):
             if i > 3:
@@ -195,6 +199,10 @@ class TestWindow(QtWidgets.QMainWindow):
             self.store_buttons[i].setText("Запись")
             self.store_buttons[i].setObjectName("store_button_{}".format(i))
 
+            self.state_labels[i].setGeometry(QtCore.QRect(390, 170, 50, 24))
+            self.state_labels[i].setPixmap(self.ICON_OFF_STATE)
+            self.state_labels[i].setObjectName("state_label_{}".format(i))
+
         self.setCentralWidget(self.centralwidget)
         QtCore.QMetaObject.connectSlotsByName(self)
         self.on_range_change()
@@ -238,11 +246,10 @@ class TestWindow(QtWidgets.QMainWindow):
         adc_data = data.split(';')
         u_plus = float(adc_data[NUM_OF_SENSORS])
         u_minus = float(adc_data[NUM_OF_SENSORS + 1])
-        u_power = u_plus - u_minus
-        u_out = [float(adc_data[i]) - u_minus for i in range(NUM_OF_SENSORS)]
+        u_power = abs(u_plus - u_minus)
+        u_out = [abs(float(adc_data[i]) - u_minus) for i in range(NUM_OF_SENSORS)]
         resistivity = [u_power / u_out[i] * config.RH - config.RH for i in range(NUM_OF_SENSORS)]
-        self.u_power = abs(u_power)
-        u_out = [abs(u) for u in u_out]
+        self.u_power = u_power
         for i in range(NUM_OF_SENSORS):
             if not self.u_off_forward_fixes[i].isChecked():
                 self.u_off_forwards[i].setText('{:0.4f}'.format(resistivity[i] / 1e6))
@@ -253,6 +260,12 @@ class TestWindow(QtWidgets.QMainWindow):
             if not self.u_on_fixes[i].isChecked():
                 self.u_ons[i].setText('{:0.1f}'.format(resistivity[i]))
                 self.u_ons[i].setToolTip('{:0.4f}'.format(u_out[i]))
+            if resistivity[i] < config.MAX_RESISTIVITY_ON_STATE:
+                self.state_labels[i].setPixmap(self.ICON_ON_STATE)
+                pass
+            else:
+                self.state_labels[i].setPixmap(self.ICON_OFF_STATE)
+                pass
 
     def closeEvent(self, event: QCloseEvent):
         self.adc.stop()

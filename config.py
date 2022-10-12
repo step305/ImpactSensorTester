@@ -7,3 +7,4 @@ ADC_TIME_ACQ = 0.2  # sec
 ADC_DEV = 'Dev1'
 ADC_RANGE = 10  # Volt
 RH = 10000  # test resistor, Ohm
+MAX_RESISTIVITY_ON_STATE = 200  # resistivity when KMG is on
