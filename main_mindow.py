@@ -3,6 +3,7 @@ from PyQt6.QtGui import QCloseEvent
 
 import config
 from drivers import NIDAQ
+import numpy as np
 
 
 # don't change - window geometry may be corrupted
@@ -26,8 +27,18 @@ class ADCThread(QtCore.QThread):
         self.quit = False
 
     def run(self) -> None:
+        cycle_buffer = np.zeros((NUM_OF_SENSORS + 2, 10), np.float32)
+        cnt = 0
         while not self.quit:
             data = self.adc.get()
+            for i in range(NUM_OF_SENSORS + 2):
+                cycle_buffer[i, cnt] = data[i]
+            cnt = cnt + 1
+            if cnt == 10:
+                cnt = 0
+            data = []
+            for i in range(NUM_OF_SENSORS + 2):
+                data.append(np.mean(cycle_buffer[i, :]))
             result = ';'.join(['{:0.5f}'.format(d) for d in data])
             self.adc_data.emit(result)
         self.adc.close()
@@ -244,11 +255,16 @@ class TestWindow(QtWidgets.QMainWindow):
 
     def update_fields(self, data):
         adc_data = data.split(';')
-        u_plus = float(adc_data[NUM_OF_SENSORS])
-        u_minus = float(adc_data[NUM_OF_SENSORS + 1])
+        u_plus = abs(float(adc_data[NUM_OF_SENSORS]))
+        u_minus = abs(float(adc_data[NUM_OF_SENSORS + 1]))
         u_power = abs(u_plus - u_minus)
         u_out = [abs(float(adc_data[i]) - u_minus) for i in range(NUM_OF_SENSORS)]
-        resistivity = [u_power / u_out[i] * config.RH - config.RH for i in range(NUM_OF_SENSORS)]
+        resistivity = []
+        for i in range(NUM_OF_SENSORS):
+            try:
+                resistivity.append(u_power / u_out[i] * config.RH - config.RH)
+            except ZeroDivisionError:
+                resistivity.append(100e6)
         self.u_power = u_power
         for i in range(NUM_OF_SENSORS):
             if not self.u_off_forward_fixes[i].isChecked():
