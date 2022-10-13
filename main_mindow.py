@@ -248,7 +248,7 @@ class TestWindow(QtWidgets.QMainWindow):
             threshold = config.SENSOR_TYPES_THRESHOLD[indx]
             indx = self.tolerance_lists[i].currentIndex()
             tolerance = config.TOLERANCES[indx]
-            accel_low = (100 - tolerance) / 100 * threshold
+            accel_low = (100 - tolerance - config.TOLERANCE_DELTA) / 100 * threshold
             accel_high = (100 + tolerance) / 100 * threshold
             self.lowers[i].setText('{:0.2f}g'.format(accel_low))
             self.uppers[i].setText('{:0.2f}g'.format(accel_high))
@@ -259,6 +259,10 @@ class TestWindow(QtWidgets.QMainWindow):
         u_minus = abs(float(adc_data[NUM_OF_SENSORS + 1]))
         u_power = abs(u_plus - u_minus)
         u_out = [abs(float(adc_data[i]) - u_minus) for i in range(NUM_OF_SENSORS)]
+        print('u_plus', u_plus)
+        print('u_minus', u_minus)
+        print('u_power', u_power)
+        print('u_out', u_out)
         resistivity = []
         for i in range(NUM_OF_SENSORS):
             try:
