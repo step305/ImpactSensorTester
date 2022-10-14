@@ -171,8 +171,8 @@ class SensorDataBase:
                     'Uвых (разомкнутый ключ, прямое), мВ': round(params[0][7] * 1e3, 1),
                     'Сопротивление разомкнутого ключа (обратное), МОм': round(params[0][8], 6),
                     'Uвых (разомкнутый ключ, обратное), мВ': round(params[0][9] * 1e3, 1),
-                    'Сработал (верх), g': '{:0.2}g'.format(params[0][11]) if params[0][10] == 1 else 'нет',
-                    'Сработал (низ)': '{:0.2}g'.format(params[0][13]) if params[0][12] == 1 else 'нет',
+                    'Сработал (верх), g': '{:0.2f}g'.format(params[0][11]) if params[0][10] == 1 else 'нет',
+                    'Сработал (низ)': '{:0.2f}g'.format(params[0][13]) if params[0][12] == 1 else 'нет',
                     'Годен': 'да' if params[0][14] == 0 and params[0][4] < 200 and params[0][6] > 2
                                      and params[0][8] > 2 else 'нет',
                     'Номер контактного устройства': params[0][15],
