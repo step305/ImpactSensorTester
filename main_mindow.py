@@ -4,12 +4,13 @@ from PyQt6.QtGui import QCloseEvent
 import config
 from drivers import NIDAQ
 import numpy as np
-
+import database
 
 # don't change - window geometry may be corrupted
 NUM_OF_SENSORS = 8
 FRAME_VERTICAL_SHIFT = 200
 FRAME_HORIZONTAL_SHIFT = 500
+DEFAULT_SERIAL_NUM = 'серийный номер'
 
 
 class ADCThread(QtCore.QThread):
@@ -27,14 +28,14 @@ class ADCThread(QtCore.QThread):
         self.quit = False
 
     def run(self) -> None:
-        cycle_buffer = np.zeros((NUM_OF_SENSORS + 2, 10), np.float32)
+        cycle_buffer = np.zeros((NUM_OF_SENSORS + 2, config.ADC_FILTER_LEN), np.float32)
         cnt = 0
         while not self.quit:
             data = self.adc.get()
             for i in range(NUM_OF_SENSORS + 2):
                 cycle_buffer[i, cnt] = data[i]
             cnt = cnt + 1
-            if cnt == 10:
+            if cnt == config.ADC_FILTER_LEN:
                 cnt = 0
             data = []
             for i in range(NUM_OF_SENSORS + 2):
@@ -73,6 +74,11 @@ class TestWindow(QtWidgets.QMainWindow):
         font12bold.setBold(True)
         font12bold.setWeight(75)
 
+        font14bold = QtGui.QFont()
+        font14bold.setPointSize(14)
+        font14bold.setBold(True)
+        font14bold.setWeight(100)
+
         font10 = QtGui.QFont()
         font10.setPointSize(10)
 
@@ -82,7 +88,7 @@ class TestWindow(QtWidgets.QMainWindow):
         self.sensors = [QtWidgets.QFrame(self.centralwidget) for _ in range(NUM_OF_SENSORS)]
         self.serial_nums = [QtWidgets.QLineEdit(self.sensors[i]) for i in range(NUM_OF_SENSORS)]
         self.range_lists = [QtWidgets.QComboBox(self.sensors[i]) for i in range(NUM_OF_SENSORS)]
-        self.tolerance_lists = [QtWidgets.QComboBox(self.sensors[i]) for i in range(NUM_OF_SENSORS)]
+        self.sensor_nums = [QtWidgets.QLabel(self.sensors[i]) for i in range(NUM_OF_SENSORS)]
         self.u_off_forwards = [QtWidgets.QLineEdit(self.sensors[i]) for i in range(NUM_OF_SENSORS)]
         self.u_off_forward_labels = [QtWidgets.QLabel(self.sensors[i]) for i in range(NUM_OF_SENSORS)]
         self.u_off_reverses = [QtWidgets.QLineEdit(self.sensors[i]) for i in range(NUM_OF_SENSORS)]
@@ -98,8 +104,8 @@ class TestWindow(QtWidgets.QMainWindow):
         self.lowers = [QtWidgets.QCheckBox(self.sensors[i]) for i in range(NUM_OF_SENSORS)]
         self.uppers = [QtWidgets.QCheckBox(self.sensors[i]) for i in range(NUM_OF_SENSORS)]
         self.working_labels = [QtWidgets.QLabel(self.sensors[i]) for i in range(NUM_OF_SENSORS)]
-        self.reset_buttons = [QtWidgets.QPushButton(self.sensors[i]) for i in range(NUM_OF_SENSORS)]
-        self.store_buttons = [QtWidgets.QPushButton(self.sensors[i]) for i in range(NUM_OF_SENSORS)]
+        self.reset_button = QtWidgets.QPushButton(self.sensors[3])
+        self.store_button = QtWidgets.QPushButton(self.sensors[3])
         self.state_labels = [QtWidgets.QLabel(self.sensors[i]) for i in range(NUM_OF_SENSORS)]
 
         for i in range(NUM_OF_SENSORS):
@@ -117,20 +123,19 @@ class TestWindow(QtWidgets.QMainWindow):
 
             self.serial_nums[i].setGeometry(QtCore.QRect(10, 10, 150, 25))
             self.serial_nums[i].setFont(font12)
-            self.serial_nums[i].setText("серийный номер")
+            self.serial_nums[i].setText(DEFAULT_SERIAL_NUM)
             self.serial_nums[i].setObjectName("serial_num_{}".format(i))
 
             self.range_lists[i].setGeometry(QtCore.QRect(170, 10, 120, 25))
             self.range_lists[i].setObjectName("range_list_{}".format(i))
             self.range_lists[i].setMaxVisibleItems(5)
-            self.range_lists[i].addItems(config.SENSOR_TYPES)
+            self.range_lists[i].addItems([x['type'] for x in config.SENSOR_TYPES])
             self.range_lists[i].currentIndexChanged.connect(self.on_range_change)
 
-            self.tolerance_lists[i].setGeometry(QtCore.QRect(300, 10, 120, 25))
-            self.tolerance_lists[i].setObjectName("tolerance_list_{}".format(i))
-            self.tolerance_lists[i].setMaxVisibleItems(5)
-            self.tolerance_lists[i].addItems([str(x) for x in config.TOLERANCES])
-            self.tolerance_lists[i].currentIndexChanged.connect(self.on_range_change)
+            self.sensor_nums[i].setGeometry(QtCore.QRect(380, 10, 120, 25))
+            self.sensor_nums[i].setFont(font14bold)
+            self.sensor_nums[i].setText('ключ {}'.format(i + 1))
+            self.sensor_nums[i].setObjectName("sensor_num_{}".format(i))
 
             self.u_off_forwards[i].setGeometry(QtCore.QRect(40, 75, 120, 25))
             self.u_off_forwards[i].setFont(font12)
@@ -162,7 +167,7 @@ class TestWindow(QtWidgets.QMainWindow):
             self.defects[i].setFont(font12bold)
             self.defects[i].setText("Брак")
             self.defects[i].setObjectName("defect_{}".format(i))
-            self.defects[i].stateChanged.connect(self.on_defect_change)
+            self.defects[i].stateChanged.connect(lambda state, cnt=i: self.on_defect_change(state, cnt))
 
             self.u_ons[i].setGeometry(QtCore.QRect(40, 140, 120, 25))
             self.u_ons[i].setFont(font12)
@@ -202,17 +207,19 @@ class TestWindow(QtWidgets.QMainWindow):
             self.working_labels[i].setText("Сработал")
             self.working_labels[i].setObjectName("working_label_{}".format(i))
 
-            self.reset_buttons[i].setGeometry(QtCore.QRect(40, 170, 75, 25))
-            self.reset_buttons[i].setText("Сброс")
-            self.reset_buttons[i].setObjectName("reset_button_{i}")
-
-            self.store_buttons[i].setGeometry(QtCore.QRect(200, 170, 75, 25))
-            self.store_buttons[i].setText("Запись")
-            self.store_buttons[i].setObjectName("store_button_{}".format(i))
-
             self.state_labels[i].setGeometry(QtCore.QRect(390, 170, 50, 24))
             self.state_labels[i].setPixmap(self.ICON_OFF_STATE)
             self.state_labels[i].setObjectName("state_label_{}".format(i))
+
+        self.store_button.setGeometry(QtCore.QRect(200, 170, 75, 25))
+        self.store_button.setText("Запись")
+        self.store_button.setObjectName("store_button")
+        self.store_button.clicked.connect(self.store_results)
+
+        self.reset_button.setGeometry(QtCore.QRect(40, 170, 75, 25))
+        self.reset_button.setText("Сброс")
+        self.reset_button.setObjectName("reset_button")
+        self.reset_button.clicked.connect(self.reset_form)
 
         self.setCentralWidget(self.centralwidget)
         QtCore.QMetaObject.connectSlotsByName(self)
@@ -231,25 +238,69 @@ class TestWindow(QtWidgets.QMainWindow):
         self.adc.adc_data.connect(self.update_fields)
         self.u_power = 0
 
-    def on_defect_change(self):
+    def store_results(self):
+        db = database.SensorDataBase()
         for i in range(NUM_OF_SENSORS):
-            if self.defects[i].isChecked():
-                self.u_on_fixes[i].setCheckState(QtCore.Qt.CheckState.Checked.Checked)
-                self.u_off_reverse_fixes[i].setCheckState(QtCore.Qt.CheckState.Checked.Checked)
-                self.u_off_forward_fixes[i].setCheckState(QtCore.Qt.CheckState.Checked.Checked)
-            else:
-                self.u_on_fixes[i].setCheckState(QtCore.Qt.CheckState.Checked.Unchecked)
-                self.u_off_reverse_fixes[i].setCheckState(QtCore.Qt.CheckState.Checked.Unchecked)
-                self.u_off_forward_fixes[i].setCheckState(QtCore.Qt.CheckState.Checked.Unchecked)
+            if self.u_on_fixes[i].isChecked() \
+                    and self.u_off_reverse_fixes[i].isChecked() \
+                    and self.u_off_forward_fixes[i].isChecked() \
+                    and self.serial_nums[i].text() != DEFAULT_SERIAL_NUM:
+                serial_num = self.serial_nums[i].text()
+                indx_type = self.range_lists[i].currentIndex()
+                sensor_type = config.SENSOR_TYPES[indx_type]['type']
+                params = {
+                    'threshold': config.SENSOR_TYPES[indx_type]['threshold'],
+                    'power_voltage': self.u_power,
+                    'test_resistivity': config.RH,
+                    'on_resistivity': float(self.u_ons[i].text()),
+                    'on_voltage': float(self.u_ons[i].toolTip()),
+                    'off_resistivity_forward': float(self.u_off_forwards[i].text()),
+                    'off_voltage_forward': float(self.u_off_forwards[i].toolTip()),
+                    'off_resistivity_reverse': float(self.u_off_reverses[i].text()),
+                    'off_voltage_reverse': float(self.u_off_reverses[i].toolTip()),
+                    'upper_triggered': 1 if self.uppers[i].isChecked() else 0,
+                    'upper_acceleration': config.SENSOR_TYPES[indx_type]['upper_limit'],
+                    'lower_triggered': 1 if self.lowers[i].isChecked() else 0,
+                    'lower_acceleration': config.SENSOR_TYPES[indx_type]['lower_limit'],
+                    'defect': 1 if self.defects[i].isChecked() else 0,
+                    'test_connector': i + 1,
+                }
+                db.add_sensor(sensor_type, serial_num)
+                if params['defect'] == 1:
+                    db.add_defect(sensor_type, serial_num)
+                db.add_parameters(sensor_type, serial_num, params)
+        db.close()
+        alert = QtWidgets.QMessageBox(self)
+        alert.setWindowTitle('Сохранено')
+        alert.setText('Сохранены результаты только с зафиксированными полями\n и новым серийным номером!')
+        alert.exec()
+
+    def reset_form(self):
+        for i in range(NUM_OF_SENSORS):
+            self.u_off_forward_fixes[i].setCheckState(QtCore.Qt.CheckState.Checked.Unchecked)
+            self.u_off_reverse_fixes[i].setCheckState(QtCore.Qt.CheckState.Checked.Unchecked)
+            self.u_on_fixes[i].setCheckState(QtCore.Qt.CheckState.Checked.Unchecked)
+            self.defects[i].setCheckState(QtCore.Qt.CheckState.Checked.Unchecked)
+            self.lowers[i].setCheckState(QtCore.Qt.CheckState.Checked.Unchecked)
+            self.uppers[i].setCheckState(QtCore.Qt.CheckState.Checked.Unchecked)
+            self.serial_nums[i].setText(DEFAULT_SERIAL_NUM)
+            self.range_lists[i].setCurrentIndex(0)
+
+    def on_defect_change(self, new_state, origin):
+        if self.defects[origin].isChecked():
+            self.u_on_fixes[origin].setCheckState(QtCore.Qt.CheckState.Checked.Checked)
+            self.u_off_reverse_fixes[origin].setCheckState(QtCore.Qt.CheckState.Checked.Checked)
+            self.u_off_forward_fixes[origin].setCheckState(QtCore.Qt.CheckState.Checked.Checked)
+        else:
+            self.u_on_fixes[origin].setCheckState(QtCore.Qt.CheckState.Checked.Unchecked)
+            self.u_off_reverse_fixes[origin].setCheckState(QtCore.Qt.CheckState.Checked.Unchecked)
+            self.u_off_forward_fixes[origin].setCheckState(QtCore.Qt.CheckState.Checked.Unchecked)
 
     def on_range_change(self):
         for i in range(NUM_OF_SENSORS):
             indx = self.range_lists[i].currentIndex()
-            threshold = config.SENSOR_TYPES_THRESHOLD[indx]
-            indx = self.tolerance_lists[i].currentIndex()
-            tolerance = config.TOLERANCES[indx]
-            accel_low = (100 - tolerance - config.TOLERANCE_DELTA) / 100 * threshold
-            accel_high = (100 + tolerance) / 100 * threshold
+            accel_low = config.SENSOR_TYPES[indx]['lower_limit']
+            accel_high = config.SENSOR_TYPES[indx]['upper_limit']
             self.lowers[i].setText('{:0.2f}g'.format(accel_low))
             self.uppers[i].setText('{:0.2f}g'.format(accel_high))
 
@@ -259,10 +310,6 @@ class TestWindow(QtWidgets.QMainWindow):
         u_minus = abs(float(adc_data[NUM_OF_SENSORS + 1]))
         u_power = abs(u_plus - u_minus)
         u_out = [abs(float(adc_data[i]) - u_minus) for i in range(NUM_OF_SENSORS)]
-        print('u_plus', u_plus)
-        print('u_minus', u_minus)
-        print('u_power', u_power)
-        print('u_out', u_out)
         resistivity = []
         for i in range(NUM_OF_SENSORS):
             try:
@@ -293,6 +340,7 @@ class TestWindow(QtWidgets.QMainWindow):
 
 if __name__ == "__main__":
     import sys
+
     app = QtWidgets.QApplication(sys.argv)
     ui = TestWindow()
     ui.show()
