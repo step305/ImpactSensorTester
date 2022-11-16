@@ -306,28 +306,36 @@ class TestWindow(QtWidgets.QMainWindow):
 
     def update_fields(self, data):
         adc_data = data.split(';')
-        u_plus = abs(float(adc_data[NUM_OF_SENSORS]))
-        u_minus = abs(float(adc_data[NUM_OF_SENSORS + 1]))
-        u_power = abs(u_plus - u_minus)
-        u_out = [abs(float(adc_data[i]) - u_minus) for i in range(NUM_OF_SENSORS)]
-        resistivity = []
+        u_plus_forward = abs(float(adc_data[NUM_OF_SENSORS]))
+        u_minus_forward = abs(float(adc_data[NUM_OF_SENSORS + 1]))
+        u_power_forward = abs(u_plus_forward - u_minus_forward)
+        u_out_forward = [abs(u_power_forward - float(adc_data[i]) - u_minus_forward) for i in range(NUM_OF_SENSORS)]
+        resistivity_forward = []
+
+        u_plus_revers = u_minus_forward
+        u_minus_revers = u_plus_forward
+        u_power_revers = abs(u_plus_revers - u_minus_revers)
+        u_out_revers = [abs(float(adc_data[i]) - u_minus_revers) for i in range(NUM_OF_SENSORS)]
+        resistivity_revers = []
         for i in range(NUM_OF_SENSORS):
             try:
-                resistivity.append(u_power / u_out[i] * config.RH - config.RH)
+                resistivity_forward.append(u_power_forward / u_out_forward[i] * config.RH - config.RH)
+                resistivity_revers.append(u_power_revers / u_out_revers[i] * config.RH - config.RH)
             except ZeroDivisionError:
-                resistivity.append(100e6)
-        self.u_power = u_power
+                resistivity_forward.append(100e6)
+                resistivity_revers.append(100e6)
+        self.u_power = u_power_forward
         for i in range(NUM_OF_SENSORS):
             if not self.u_off_forward_fixes[i].isChecked():
-                self.u_off_forwards[i].setText('{:0.4f}'.format(resistivity[i] / 1e6))
-                self.u_off_forwards[i].setToolTip('{:0.4f}'.format(u_out[i]))
+                self.u_off_forwards[i].setText('{:0.4f}'.format(resistivity_forward[i] / 1e6))
+                self.u_off_forwards[i].setToolTip('{:0.4f}'.format(u_out_forward[i]))
             if not self.u_off_reverse_fixes[i].isChecked():
-                self.u_off_reverses[i].setText('{:0.4f}'.format(resistivity[i] / 1e6))
-                self.u_off_reverses[i].setToolTip('{:0.4f}'.format(u_out[i]))
+                self.u_off_reverses[i].setText('{:0.4f}'.format(resistivity_revers[i] / 1e6))
+                self.u_off_reverses[i].setToolTip('{:0.4f}'.format(u_out_revers[i]))
             if not self.u_on_fixes[i].isChecked():
-                self.u_ons[i].setText('{:0.1f}'.format(resistivity[i]))
-                self.u_ons[i].setToolTip('{:0.4f}'.format(u_out[i]))
-            if resistivity[i] < config.MAX_RESISTIVITY_ON_STATE:
+                self.u_ons[i].setText('{:0.1f}'.format(resistivity_forward[i]))
+                self.u_ons[i].setToolTip('{:0.4f}'.format(u_out_forward[i]))
+            if resistivity_forward[i] < config.MAX_RESISTIVITY_ON_STATE:
                 self.state_labels[i].setPixmap(self.ICON_ON_STATE)
                 pass
             else:
