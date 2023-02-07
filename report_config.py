@@ -1,7 +1,7 @@
 SENSOR= (
     {
         'type': 'тип_1',
-        'serial_num': '1',
+        'serial_num': '22.207',
     },
     {
         'type': 'тип_1',

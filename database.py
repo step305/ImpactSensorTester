@@ -18,7 +18,7 @@ class SensorDataBase:
                   'sensor_type TEXT NOT NULL, ' \
                   'comment TEXT, ' \
                   'shipped_to TEXT, ' \
-                  'UNIQUE (sensor_type, serial_num) ON CONFLICT IGNORE' \
+                  'UNIQUE (sensor_type, serial_num) ON CONFLICT REPLACE' \
                   ');'
             self.cursor.execute(req)
             self.connection.commit()
@@ -29,7 +29,7 @@ class SensorDataBase:
                   'sensor_type TEXT NOT NULL, ' \
                   'date TIMESTAMP NOT NULL, ' \
                   'comment TEXT, ' \
-                  'UNIQUE (sensor_type, serial_num) ON CONFLICT IGNORE' \
+                  'UNIQUE (sensor_type, serial_num) ON CONFLICT REPLACE' \
                   ');'
             self.cursor.execute(req)
             self.connection.commit()
@@ -55,7 +55,7 @@ class SensorDataBase:
                   'defect INTEGER, ' \
                   'test_connector INTEGER, ' \
                   'comment TEXT, ' \
-                  'UNIQUE (sensor_type, serial_num) ON CONFLICT IGNORE' \
+                  'UNIQUE (sensor_type, serial_num) ON CONFLICT REPLACE' \
                   ');'
             self.cursor.execute(req)
             self.connection.commit()
@@ -174,7 +174,7 @@ class SensorDataBase:
                     'Сработал (верх), g': '{:0.2f}g'.format(params[0][11]) if params[0][10] == 1 else 'нет',
                     'Сработал (низ)': '{:0.2f}g'.format(params[0][13]) if params[0][12] == 1 else 'нет',
                     'Годен': 'да' if params[0][14] == 0 and params[0][4] < 200 and params[0][6] > 2
-                                     and params[0][8] > 2 else 'нет',
+                                     and params[0][8] > 2 and params[0][10] == 0 else 'нет',
                     'Номер контактного устройства': params[0][15],
                 }
             else:

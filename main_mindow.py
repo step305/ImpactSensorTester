@@ -306,10 +306,16 @@ class TestWindow(QtWidgets.QMainWindow):
 
     def update_fields(self, data):
         adc_data = data.split(';')
-        u_plus = abs(float(adc_data[NUM_OF_SENSORS]))
-        u_minus = abs(float(adc_data[NUM_OF_SENSORS + 1]))
-        u_power = abs(u_plus - u_minus)
-        u_out = [abs(float(adc_data[i]) - u_minus) for i in range(NUM_OF_SENSORS)]
+        u_plus = (float(adc_data[NUM_OF_SENSORS]))
+        u_minus = (float(adc_data[NUM_OF_SENSORS + 1]))
+        u_power = (u_plus - u_minus)
+        u_out = [(float(adc_data[i]) - u_minus) for i in range(NUM_OF_SENSORS)]
+        if u_power > 0:
+            u_out = [x if x > 0.01 else 0.01 for x in u_out]
+            u_out = [x if x < u_power else u_power for x in u_out]
+        else:
+            u_out = [x if x < -0.01 else -0.01 for x in u_out]
+            u_out = [x if x > u_power else u_power for x in u_out]
         resistivity = []
         for i in range(NUM_OF_SENSORS):
             try:
