@@ -65,6 +65,18 @@ class SensorDataBase:
         except sqlite3.Error as error:
             print('Init:', error)
 
+    def all(self):
+        sensors = []
+        try:
+            self.cursor = self.connection.cursor()
+            req = 'SELECT serial_num, sensor_type FROM sensors;'
+            self.cursor.execute(req)
+            sensors = self.cursor.fetchall()
+            self.cursor.close()
+        except sqlite3.Error as error:
+            print('Add sensor:', error)
+        return sensors
+
     def add_sensor(self, sensor_type, serial_num):
         try:
             self.cursor = self.connection.cursor()
