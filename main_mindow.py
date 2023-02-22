@@ -28,17 +28,17 @@ class ADCThread(QtCore.QThread):
         self.quit = False
 
     def run(self) -> None:
-        cycle_buffer = np.zeros((NUM_OF_SENSORS + 2, config.ADC_FILTER_LEN), np.float32)
+        cycle_buffer = np.zeros((NUM_OF_SENSORS, config.ADC_FILTER_LEN), np.float32)
         cnt = 0
         while not self.quit:
             data = self.adc.get()
-            for i in range(NUM_OF_SENSORS + 2):
+            for i in range(NUM_OF_SENSORS):
                 cycle_buffer[i, cnt] = data[i]
             cnt = cnt + 1
             if cnt == config.ADC_FILTER_LEN:
                 cnt = 0
             data = []
-            for i in range(NUM_OF_SENSORS + 2):
+            for i in range(NUM_OF_SENSORS):
                 data.append(np.mean(cycle_buffer[i, :]))
             result = ';'.join(['{:0.5f}'.format(d) for d in data])
             self.adc_data.emit(result)
@@ -306,8 +306,8 @@ class TestWindow(QtWidgets.QMainWindow):
 
     def update_fields(self, data):
         adc_data = data.split(';')
-        u_plus = (float(adc_data[NUM_OF_SENSORS]))
-        u_minus = (float(adc_data[NUM_OF_SENSORS + 1]))
+        u_plus = 5  # (float(adc_data[NUM_OF_SENSORS]))
+        u_minus = 0  # (float(adc_data[NUM_OF_SENSORS + 1]))
         u_power = (u_plus - u_minus)
         u_out = [(float(adc_data[i]) - u_minus) for i in range(NUM_OF_SENSORS)]
         if u_power > 0:

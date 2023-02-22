@@ -31,7 +31,7 @@ SENSOR_TYPES = (
     },
 )
 
-ADC_CHANNELS = (8, 9, 10, 11, 12, 13, 14, 15, 4, 5)  # 0-7 for KNG, 8 for power "+", 9 - for power "-"
+ADC_CHANNELS = (8, 9, 10, 11, 12, 13, 14, 15)  # 0-7 for KMG
 ADC_FREQ = 100  # Hz
 ADC_TIME_ACQ = 0.2  # sec
 ADC_DEV = 'Dev2'
